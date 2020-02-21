@@ -1,0 +1,6 @@
+preprocess.py
+.DS_Store
+*/dataset_TIST2015/
+!*/dataset_TIST2015/smalldata.csv
+.ipynb_checkpoints
+*.zip
