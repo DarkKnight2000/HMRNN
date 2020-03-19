@@ -1,6 +1,7 @@
-preprocess.py
-.DS_Store
+hm-rnn/
 */dataset_TIST2015/
-!*/dataset_TIST2015/smalldata.csv
+!dataset_TIST2015/smalldata.csv
+!dataset_TIST2015/smalldata2.csv
+!dataset_TIST2015/smalldata_unproc.csv
 .ipynb_checkpoints
 *.zip
