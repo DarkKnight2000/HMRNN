@@ -2,3 +2,7 @@ hm-rnn/
 */dataset_TIST2015/
 .ipynb_checkpoints
 *.zip
+spickles/
+.vscode/
+Refs/
+rnn.py

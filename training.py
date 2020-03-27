@@ -13,6 +13,7 @@ torch.random.manual_seed(0)
 # dataset variables
 user_id_col = 'user_id'
 city_id_col = 'city_id'
+poi_id_col = 'venue_id'
 lat_col = 'latitude'
 long_col = 'longitude'
 time_col = 'utc_time'
@@ -31,8 +32,8 @@ def getData(df):
 		sub_df = df[df[user_id_col] == uid]
 		if not i % 50: print('usr id', uid, ' dflen ', len(sub_df.index))
 		# inp = lat, long, cid	out = lat, long, time, cid, binary
-		inps = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T
-		outs = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list(), np.zeros(len(sub_df.index)))).T[1:]
+		inps = np.array((sub_df[lat_col].to_list()/90, sub_df[long_col].to_list()/180, sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T
+		outs = np.array((sub_df[lat_col].to_list()/90, sub_df[long_col].to_list()/180, sub_df[time_col].to_list(), sub_df[city_id_col].to_list(), np.zeros(len(sub_df.index)))).T[1:]
 		# print(inps[-1])
 		# print(outs[-1])
 		for i in range(len(inps)-1):
@@ -88,7 +89,7 @@ for epoch in range(epochs):
 	optimiser.zero_grad()
 	loss = 0
 	for i in range(len(inputs)):
-		if random.random() > .25 : continue # FIXME: Runs only for 25% of users
+		if random.random() > .25 : continue # FIXME: Runs only for 25% of users in each loop
 		inps, outs = inputs[i], labels[i]
 		hidden = model.init_hidden()
 		cellState = model.init_hidden()
