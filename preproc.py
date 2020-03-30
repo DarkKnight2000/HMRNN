@@ -30,11 +30,12 @@ def getColumnStats(df, col_name):
 
 def getStats(df_name):
     df = pd.read_csv(df_name, sep = '\t')
-    df.drop('city_id', axis = 1)
+    # df.drop('city_id', axis = 1)
+    print(df['city_name'].isna().sum())
     df.dropna(axis = 0, inplace = True)
     print(df.tail())
     print('No of users = ', len(df[user_id_col].unique()))
-    print('No of cities = ', len(df[city_id_col].unique()))
+    print('No of cities = ', len(df[city_name_col].unique()))
     print('No of pois = ', len(df[poi_id_col].unique()))
 
     # take no of checkins by each user into an array and print stats
@@ -43,11 +44,26 @@ def getStats(df_name):
 
     # take no of checkins in each city into an array and print stats
     print('Stats on no. of checkins to citites')
-    getColumnStats(df, city_id_col)
+    getColumnStats(df, city_name_col)
 
     # take no of checkins in each poi into an array and print stats
     print('Stats on no. of checkins to pois')
     getColumnStats(df, poi_id_col)
+
+    #finding no of switches
+    valToInd = {val : i for i,val in enumerate(df[user_id_col].unique())} #giving an index for each unique value
+    lastVisits = [0 for _ in range(len(valToInd))]
+    switches = [0 for _ in range(len(valToInd))]
+    for ind in df.index:
+        if(lastVisits[valToInd[df[user_id_col][ind]]] != df[city_name_col][ind]):
+            switches[valToInd[df[user_id_col][ind]]] += 1 # updating frequency at the assigned index
+        lastVisits[valToInd[df[user_id_col][ind]]] = df[city_name_col][ind] # changing lastvisited city entry
+    print('Stats on no of switches : ')
+    print('max',np.max(switches))
+    print('min',np.min(switches))
+    print('mean',np.mean(switches))
+    print('median',np.median(switches))
+    print('mode',stats.mode(switches))
 
 
 
@@ -139,7 +155,7 @@ if __name__ == "__main__":
     print(df.tail())
     print(df['city_name'].isna().sum())
     # getCityApi(d2[lat_col][3320], d2[long_col][3320], d2[country_code_col][3320])
-    df[city_name_col] = df.progress_apply(getCity, axis=1)
+    # df[city_name_col] = df.progress_apply(getCity, axis=1)
     print(df['city_name'].isna().sum())
-    df.to_csv("./Datasets/dataset_TIST2015/smalldata_part.csv")
+    # df.to_csv("./Datasets/dataset_TIST2015/smalldata_part.csv")
     getStats("./Datasets/dataset_TIST2015/smalldata_part.csv")
