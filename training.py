@@ -19,7 +19,7 @@ long_col = 'longitude'
 time_col = 'utc_time'
 
 # training vars
-input_size = 3
+input_size = 4
 hidden_size = 5
 batch_size = 1
 seq_len = 1
@@ -32,20 +32,16 @@ def getData(df):
 		sub_df = df[df[user_id_col] == uid]
 		if not i % 50: print('usr id', uid, ' dflen ', len(sub_df.index))
 		# inp = lat, long, cid	out = lat, long, time, cid, binary
-		inps = np.array((sub_df[lat_col].to_list()/90, sub_df[long_col].to_list()/180, sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T
-		outs = np.array((sub_df[lat_col].to_list()/90, sub_df[long_col].to_list()/180, sub_df[time_col].to_list(), sub_df[city_id_col].to_list(), np.zeros(len(sub_df.index)))).T[1:]
-		# print(inps[-1])
-		# print(outs[-1])
+		inps = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T/np.array([90,180,1,1])# normalising
+		outs = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list(), np.zeros(len(sub_df.index)))).T[1:]/np.array([90,180,1,1,1])
 		for i in range(len(inps)-1):
 			# 2 for timestamp, 3 for city id, 4 for binary output
 			outs[i][2] -= inps[i][2]
+			if (i != len(inps) - 1):
+				inps[i+1][2] -= inps[i][2] # giving time difference as input
 			outs[i][4] = 1 if outs[i][3] != inps[i][3] else 0
-		# print(inps.shape)
-		# print(inps[0])
-		inps = np.concatenate((inps.T[:2], inps.T[3:])).T
-		# print(inps.shape)
-		# print(outs.shape)
-		# break
+
+		#TODO: change cities to onehot encoded vectors
 		inputs.append(inps[:-1])
 		labels.append(outs)
 		lastCheckins.append(inps[-1])
@@ -89,7 +85,6 @@ for epoch in range(epochs):
 	optimiser.zero_grad()
 	loss = 0
 	for i in range(len(inputs)):
-		if random.random() > .25 : continue # FIXME: Runs only for 25% of users in each loop
 		inps, outs = inputs[i], labels[i]
 		hidden = model.init_hidden()
 		cellState = model.init_hidden()
