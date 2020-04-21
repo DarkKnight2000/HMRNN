@@ -6,6 +6,8 @@ import random
 import pandas as pd
 import numpy as np
 
+from models import SingleLSTMModel, MultiLSTMModel
+
 random.seed(0)
 np.random.seed(0)
 torch.random.manual_seed(0)
@@ -19,89 +21,77 @@ long_col = 'longitude'
 time_col = 'utc_time'
 
 # training vars
-input_size = 4
-hidden_size = 5
 batch_size = 1
 seq_len = 1
 num_layers = 2
 epochs = 100
 
+f = open('logs.txt', 'w')
+
 def getData(df):
-	inputs, labels, lastCheckins = [], [], []
-	for i,uid in enumerate(df[user_id_col].unique()):
-		sub_df = df[df[user_id_col] == uid]
-		if not i % 50: print('usr id', uid, ' dflen ', len(sub_df.index))
-		# inp = lat, long, cid	out = lat, long, time, cid, binary
-		inps = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T/np.array([90,180,1,1])# normalising
-		outs = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list(), np.zeros(len(sub_df.index)))).T[1:]/np.array([90,180,1,1,1])
-		for i in range(len(inps)-1):
-			# 2 for timestamp, 3 for city id, 4 for binary output
-			outs[i][2] -= inps[i][2]
-			if (i != len(inps) - 1):
-				inps[i+1][2] -= inps[i][2] # giving time difference as input
-			outs[i][4] = 1 if outs[i][3] != inps[i][3] else 0
+    inputs, labels, lastCheckins = [], [], []
+    for i,uid in enumerate(df[user_id_col].unique()):
+        sub_df = df[df[user_id_col] == uid]
+        if not i % 50: print('usr id', uid, ' dflen ', len(sub_df.index), file = f)
+        # inp = lat, long, time, cid
+        # out = lat, long, time, binary, cid
+        inps = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T/np.array([90,180,1,1])# normalising
+        outs = np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), np.zeros(len(sub_df.index)), sub_df[city_id_col].to_list())).T[1:]/np.array([90,180,1,1,1])
+        # print(inps[0])
+        # print(np.array((sub_df[lat_col].to_list(), sub_df[long_col].to_list(), sub_df[time_col].to_list(), sub_df[city_id_col].to_list())).T[0])
+        for i in range(len(inps)-1):
+            # 2 for timestamp, 3 for binary output, 4 for city id
+            outs[i][2] -= inps[i][2]
+            if (i != len(inps) - 1):
+                inps[i+1][2] -= inps[i][2] # giving time difference as input
+            outs[i][3] = 1 if outs[i][4] != inps[i][3] else 0
 
-		#TODO: change cities to onehot encoded vectors
-		inputs.append(inps[:-1])
-		labels.append(outs)
-		lastCheckins.append(inps[-1])
-	return inputs, labels, lastCheckins
+        inputs.append(inps[:-1])
+        labels.append(outs)
+        lastCheckins.append(inps[-1])
+    return inputs, labels, lastCheckins
 
 
-class Model(nn.Module):
-
-    def __init__(self):
-        super(Model, self).__init__()
-        self.rnn = nn.LSTM(input_size = input_size, hidden_size = hidden_size, batch_first = True, num_layers=num_layers)
-        self.endSeg = 0
-
-    def forward(self, x, hidden):
-        x = x.view(batch_size, -1, input_size)
-        # print(hidden.size())
-        # Input : (batch, seqlen, input_size)
-        out, hidden = self.rnn(x, hidden)
-        out = out.view(-1, hidden_size)
-        return hidden, out
-
-    def init_hidden(self):
-        return Variable(torch.zeros(num_layers, batch_size, hidden_size))
+def getEncodedVec(input, size):
+    # Last value of input should be city id
+    # size is total no of cities
+    retVal = torch.cat((input[:-1], torch.zeros(size)), 0)
+    print('revalsize', retVal.size())
+    print('cityid', input[-1])
+    retVal[input.size()[0] - 1 + int(input[-1])] = 1
+    return retVal
 
 
 # reading dataset
-df = pd.read_csv('./Datasets/dataset_TIST2015/smalldata2.csv', sep = '\t')
-print(df.dtypes)
-print(len(df.index))
+df = pd.read_csv('./Datasets/dataset_TIST2015/smalldata_final.csv')
+print(df.dtypes, file = f)
+print(len(df.index), file = f)
 inputs, labels, lasts = getData(df)
 
-print('cities ', len(df['city_name'].unique()))
+'''
+1 -> single lstm model
+2 -> multi lstm model
+'''
+model_name = 3
 
-# training settings
-model = Model()
-criterion = nn.MSELoss()
-optimiser = torch.optim.Adam(model.parameters(), lr = 0.05)
+if model_name == 1:
 
-# training loop
-for epoch in range(epochs):
-	optimiser.zero_grad()
-	loss = 0
-	for i in range(len(inputs)):
-		inps, outs = inputs[i], labels[i]
-		hidden = model.init_hidden()
-		cellState = model.init_hidden()
-		for inp, label in zip(inps, outs):
-			# print(hidden)
-			# print(torch.Tensor(inp).view(batch_size, -1, input_size))
-			(hidden, cellState), output = model(torch.Tensor(inp), (hidden, cellState))
-			val, idx = output.max(1)
-			# print(output)
-			# print(output.size())
-			# print(label)
-			# print(label.size())
-			# try:
-			loss += criterion(output, torch.tensor([label], dtype=torch.float))
-			# except AttributeError:
-			#     print(label)
-	if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', loss)
+    print('cities ', len(df['city_name'].unique()), file = f)
+    city_vec_len = len(df['city_name'].unique())
+    input_dim = 4
+    # dim without city id
+    output_dim = 4
 
-	loss.backward()
-	optimiser.step()
+    model = SingleLSTMModel(input_dim, output_dim + city_vec_len, city_vec_len, num_layers=num_layers, batch_size=batch_size)
+    model.CustomTrain(df, inputs, labels, epochs)
+
+elif model_name == 2:
+    print('cities ', len(df['city_name'].unique()), file = f)
+    city_vec_len = len(df['city_name'].unique())
+    input_dim = 4
+    output_dim = 4
+
+
+    # creating model
+    model = MultiLSTMModel(input_dim, output_dim, city_vec_len, num_layers=[num_layers, num_layers], batch_size=batch_size)
+    model.CustomTrain(df, inputs, labels, epochs)

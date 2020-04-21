@@ -6,3 +6,4 @@ spickles/
 .vscode/
 Refs/
 rnn.py
+__pycache__
