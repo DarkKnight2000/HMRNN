@@ -1,33 +1,36 @@
-user_id              int64
-venue_id            object
-utc_time           float64
-latitude           float64
-longitude          float64
-category            object
-country_code        object
-category_id          int64
-country_code_id      int64
-city_name           object
-city_id              int64
-dtype: object
-181089
-usr id 260  dflen  1788
-usr id 7441  dflen  536
-usr id 14525  dflen  391
-usr id 21033  dflen  348
-usr id 30254  dflen  270
-usr id 39794  dflen  251
-usr id 46761  dflen  236
-usr id 57974  dflen  202
-usr id 67809  dflen  182
-usr id 79925  dflen  85
-usr id 90947  dflen  153
-usr id 105131  dflen  146
-usr id 119726  dflen  124
-usr id 133718  dflen  118
-usr id 145222  dflen  91
-usr id 159964  dflen  48
-usr id 176658  dflen  59
-usr id 201234  dflen  55
-usr id 218238  dflen  66
-usr id 241013  dflen  39
+Time stamp : 2020-05-01 02:22:01.964917
+Total checkins :  181089
+Time stamp : 2020-05-01 02:24:03.448482
+Time stamp : 2020-05-01 02:24:58.922870
+Time stamp : 2020-05-01 02:25:23.821001
+Time stamp : 2020-05-01 02:25:38.931245
+Time stamp : 2020-05-01 02:26:04.085324
+Time stamp : 2020-05-01 02:26:53.065066
+Time stamp : 2020-05-01 02:27:10.965853
+Time stamp : 2020-05-01 02:27:53.025103
+Time stamp : 2020-05-01 02:29:09.406313
+Time stamp : 2020-05-01 02:29:36.660708
+Time stamp : 2020-05-01 02:35:56.920774
+Time stamp : 2020-05-01 02:36:23.174278
+Time stamp : 2020-05-01 02:38:13.644630
+Time stamp : 2020-05-01 02:38:45.429331
+Time stamp : 2020-05-01 02:39:46.011911
+Total checkins :  181089
+Time stamp : 2020-05-01 02:42:18.767250
+Total checkins :  181089
+Time stamp : 2020-05-01 02:43:10.527155
+Time stamp : 2020-05-01 02:43:50.616237
+Time stamp : 2020-05-01 02:44:36.696882
+Total checkins :  181089
+Time stamp : 2020-05-01 02:45:43.228118
+Time stamp : 2020-05-01 02:47:03.074474
+Time stamp : 2020-05-01 02:47:37.583417
+Time stamp : 2020-05-01 02:47:46.667548
+Time stamp : 2020-05-01 02:51:36.901200
+Time stamp : 2020-05-01 02:52:19.483432
+Time stamp : 2020-05-01 02:52:48.673161
+Time stamp : 2020-05-01 02:53:07.795995
+Time stamp : 2020-05-01 02:54:53.028679
+Time stamp : 2020-05-01 02:55:29.476105
+Time stamp : 2020-05-01 03:00:48.049657
+Time stamp : 2020-05-01 03:06:25.848350
