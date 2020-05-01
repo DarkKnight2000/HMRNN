@@ -198,15 +198,10 @@ class MultiLSTMModel(nn.Module):
         self.city_rep_len = city_rep_len
         self.inner_hidden_size = 1 + poi_vec_len
         self.innerLstm = None
-        self.innerLstmDict = defaultdict(lambda : nn.LSTM(input_size = city_rep_len, hidden_size = self.inner_hidden_size, batch_first = True, num_layers = 1))
-        self.innerHidDict = defaultdict(lambda : (Variable(torch.zeros(1, 1, self.inner_hidden_size)), Variable(torch.zeros(1, 1, self.inner_hidden_size))))
         self.outerLstm = nn.LSTM(input_size = num_cities, hidden_size = city_rep_len, batch_first = True, num_layers = 1)
 
         self.mseloss = nn.MSELoss()
         self.crossEntLoss = nn.CrossEntropyLoss()
-
-    def changeCity(self, city_id):
-        self.innerLstm = self.innerLstmDict[city_id]
 
     def init_hidden_outer(self):
         return (Variable(torch.zeros(1, 1, self.city_rep_len)), Variable(torch.zeros(1, 1, self.city_rep_len)))
@@ -231,6 +226,10 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
     # to store no of visits by a user in each city
     user_city_visits = defaultdict(lambda : defaultdict(lambda : 0))
 
+    innerLstmDict = defaultdict(lambda : nn.LSTM(input_size = model.city_rep_len, hidden_size = model.inner_hidden_size, batch_first = True, num_layers = 1))
+    innerHidDict = defaultdict(lambda : (Variable(torch.zeros(1, 1, model.inner_hidden_size)), Variable(torch.zeros(1, 1, model.inner_hidden_size))))
+
+
     f = open('logs.txt', 'a')
 
     # training loop
@@ -251,10 +250,10 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                 inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
                 
 
-                model.changeCity(curr_city)
-                hidden_inner = model.innerHidDict[curr_city]
+                model.innerLstm = innerLstmDict[curr_city]
+                hidden_inner = innerHidDict[curr_city]
                 innerLoss = 0
-                optimiser_inner = torch.optim.Adam(model.innerLstm.parameters(), lr = 0.05)
+                optimiser_inner = torch.optim.Adam(model.parameters(), lr = 0.05)
                 optimiser_inner.zero_grad()
                 for cin in c_visit[1]:
                     pred_checkin, hidden_inner = model.innerLstm(inp_inner, hidden_inner)
@@ -264,13 +263,13 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                 innerLoss.backward(retain_graph=True)
                 optimiser_inner.step()
                 del optimiser_inner
-                model.innerHidDict[curr_city] = hidden_inner
+                innerHidDict[curr_city] = hidden_inner
 
             # outer_loss.backward()
             # optimiser_outer.step()
 
             # deleting hidden states of every city's lstm and starting newly for each user
-            for k in model.innerHidDict.keys():
-                del model.innerHidDict[k]
+            for k in innerHidDict.keys():
+                del innerHidDict[k]
 
         if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
