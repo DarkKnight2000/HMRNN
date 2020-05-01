@@ -5,7 +5,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from collections import defaultdict
 
 
-use_cuda = False
+use_cuda = True
 
 class SingleLSTMModel(nn.Module):
     '''
@@ -204,11 +204,36 @@ class MultiLSTMModel(nn.Module):
         self.crossEntLoss = nn.CrossEntropyLoss()
 
     def init_hidden_outer(self):
-        return (Variable(torch.zeros(1, 1, self.city_rep_len)), Variable(torch.zeros(1, 1, self.city_rep_len)))
+        if use_cuda:
+            return (Variable(torch.zeros(1, 1, self.city_rep_len).cuda(torch.device('cuda'))), Variable(torch.zeros(1, 1, self.city_rep_len).cuda(torch.device('cuda'))))
+        else:
+            return (Variable(torch.zeros(1, 1, self.city_rep_len)), Variable(torch.zeros(1, 1, self.city_rep_len)))
+
+    def init_hidden_inner(self):
+        if use_cuda:
+            return (Variable(torch.zeros(1, 1, self.inner_hidden_size).cuda(torch.device('cuda'))), Variable(torch.zeros(1, 1, self.inner_hidden_size).cuda(torch.device('cuda'))))
+        else:
+            return (Variable(torch.zeros(1, 1, self.inner_hidden_size)), Variable(torch.zeros(1, 1, self.inner_hidden_size)))
+
+    def get_inner_lstm(self):
+        if use_cuda:
+            return nn.LSTM(input_size = self.city_rep_len, hidden_size = self.inner_hidden_size, batch_first = True, num_layers = 1).cuda(torch.device('cuda'))
+        else:
+            return nn.LSTM(input_size = self.city_rep_len, hidden_size = self.inner_hidden_size, batch_first = True, num_layers = 1)
+
 
     def checkInLoss(self, output, label):
         output = torch.split(output, self.poi_vec_len, dim=2)
-        return torch.add(self.mseloss(output[1], torch.tensor([[[label[1]]]], dtype=torch.float)) ,self.crossEntLoss(output[0].view(-1, self.poi_vec_len), torch.tensor([label[0]], dtype=torch.long)))
+        if use_cuda:
+            l1 = torch.tensor([[[label[1]]]], dtype=torch.float).cuda(torch.device('cuda'))
+            l0 = torch.tensor([label[0]], dtype=torch.long).cuda(torch.device('cuda'))
+        else:
+            l1 = torch.tensor([[[label[1]]]], dtype=torch.float)
+            l0 = torch.tensor([label[0]], dtype=torch.long)
+        retVal = torch.add(self.mseloss(output[1], l1) ,self.crossEntLoss(output[0].view(-1, self.poi_vec_len), l0))
+        del l0
+        del l1
+        return retVal
 
 def getEncodedVec(vec_len, on_at):
     ret = torch.zeros(vec_len, dtype = torch.float)
@@ -219,15 +244,15 @@ def getEncodedVec(vec_len, on_at):
 
 def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
 
-    if use_cuda : model = model.cuda(torch.device('cuda'))
+    if use_cuda : model.cuda(torch.device('cuda'))
 
     # optimiser_outer = torch.optim.Adam(model.outerLstm.parameters(), lr = 0.05)
 
     # to store no of visits by a user in each city
     user_city_visits = defaultdict(lambda : defaultdict(lambda : 0))
 
-    innerLstmDict = defaultdict(lambda : nn.LSTM(input_size = model.city_rep_len, hidden_size = model.inner_hidden_size, batch_first = True, num_layers = 1))
-    innerHidDict = defaultdict(lambda : (Variable(torch.zeros(1, 1, model.inner_hidden_size)), Variable(torch.zeros(1, 1, model.inner_hidden_size))))
+    innerLstmDict = defaultdict(lambda : model.get_inner_lstm())
+    innerHidDict = defaultdict(lambda : model.init_hidden_inner())
 
 
     f = open('logs.txt', 'a')
@@ -263,6 +288,7 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                 innerLoss.backward(retain_graph=True)
                 optimiser_inner.step()
                 del optimiser_inner
+                del innerLoss
                 innerHidDict[curr_city] = hidden_inner
 
             # outer_loss.backward()
