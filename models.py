@@ -5,7 +5,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from collections import defaultdict
 
 
-use_cuda = True
+use_cuda = False
 
 class SingleLSTMModel(nn.Module):
     '''
@@ -234,6 +234,12 @@ class MultiLSTMModel(nn.Module):
         del l0
         del l1
         return retVal
+
+    def chaneCity(self, cit_id):
+        pass
+
+    def saveCity(self, curr_city_id):
+        pass
 
 def getEncodedVec(vec_len, on_at):
     ret = torch.zeros(vec_len, dtype = torch.float)
