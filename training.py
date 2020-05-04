@@ -132,6 +132,7 @@ if model_name == 1:
     input_dim = 4
     # dim without city id
     output_dim = 4
+    inputs, labels, _ = getData(df)
 
     model = SingleLSTMModel(input_dim, output_dim + city_vec_len, city_vec_len, num_layers=num_layers, batch_size=batch_size)
     model.CustomTrain(df, inputs, labels, epochs)
