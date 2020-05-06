@@ -256,7 +256,7 @@ class MultiLSTMModel(nn.Module):
 
 def getEncodedVec(vec_len, on_at):
     ret = torch.zeros(vec_len, dtype = torch.float)
-    print('ret', ret, 'onat ', on_at)
+    # print('ret', ret, 'onat ', on_at)
     ret[on_at] = 1
     if use_cuda : ret = ret.cuda(torch.device('cuda'))
     return ret
