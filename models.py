@@ -3,6 +3,7 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from collections import defaultdict
+from torch import autograd
 
 
 use_cuda = False
@@ -264,44 +265,46 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
     f = open('logs.txt', 'a')
 
     # training loop
-    for epoch in range(epochs):
-        print("epoch started " + str(epoch))
-        total_loss = 0
-        # for each user
-        print(data[0][0])
-        for u_visit in data:
-            # optimiser_outer.zero_grad()
-            # outer_loss = 0
-            outer_hidden = model.init_hidden_outer()
-            # for each city a user visited
-            for c_visit in u_visit:
-                # print('cvisit1',c_visit[1])
-                curr_city = c_visit[0]
-                # print('curcity', curr_city)
-                inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
-                
+    with autograd.detect_anomaly():
+	    for epoch in range(epochs):
+	        print("epoch started " + str(epoch))
+	        total_loss = 0
+	        # for each user
+	        print(data[0][0])
+	        for u_visit in data:
+	            # optimiser_outer.zero_grad()
+	            # outer_loss = 0
+	            outer_hidden = model.init_hidden_outer()
+	            # for each city a user visited
+	            for c_visit in u_visit:
+	                # print('cvisit1',c_visit[1])
+	                curr_city = c_visit[0]
+	                # print('curcity', curr_city)
+	                inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
+	                
 
-                model.innerLstm = innerLstmDict[curr_city]
-                hidden_inner = innerHidDict[curr_city]
-                innerLoss = 0
-                optimiser_inner = torch.optim.Adam(model.parameters(), lr = 0.05)
-                optimiser_inner.zero_grad()
-                for cin in c_visit[1]:
-                    pred_checkin, hidden_inner = model.innerLstm(inp_inner, hidden_inner)
-                    innerLoss += model.checkInLoss(pred_checkin, cin)
+	                model.innerLstm = innerLstmDict[curr_city]
+	                hidden_inner = innerHidDict[curr_city]
+	                innerLoss = 0
+	                optimiser_inner = torch.optim.Adam(model.parameters(), lr = 0.05)
+	                optimiser_inner.zero_grad()
+	                for cin in c_visit[1]:
+	                    pred_checkin, hidden_inner = model.innerLstm(inp_inner, hidden_inner)
+	                    innerLoss += model.checkInLoss(pred_checkin, cin)
 
-                total_loss += innerLoss
-                innerLoss.backward(retain_graph=True)
-                optimiser_inner.step()
-                del optimiser_inner
-                del innerLoss
-                innerHidDict[curr_city] = hidden_inner
+	                total_loss += innerLoss
+	                innerLoss.backward(retain_graph=True)
+	                optimiser_inner.step()
+	                del optimiser_inner
+	                del innerLoss
+	                innerHidDict[curr_city] = hidden_inner
 
-            # outer_loss.backward()
-            # optimiser_outer.step()
+	            # outer_loss.backward()
+	            # optimiser_outer.step()
 
-            # deleting hidden states of every city's lstm and starting newly for each user
-            for k in innerHidDict.keys():
-                del innerHidDict[k]
+	            # deleting hidden states of every city's lstm and starting newly for each user
+	            for k in innerHidDict.keys():
+	                del innerHidDict[k]
+	        if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
 
-        if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
+	      
