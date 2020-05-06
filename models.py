@@ -6,7 +6,8 @@ from collections import defaultdict
 from torch import autograd
 
 
-use_cuda = False
+use_cuda = True
+print(torch.__version__)
 
 class SingleLSTMModel(nn.Module):
     '''
@@ -256,7 +257,7 @@ class MultiLSTMModel(nn.Module):
 
 def getEncodedVec(vec_len, on_at):
     ret = torch.zeros(vec_len, dtype = torch.float)
-    print('ret', ret, 'onat ', on_at)
+    # print('ret', ret, 'onat ', on_at)
     ret[on_at] = 1
     if use_cuda : ret = ret.cuda(torch.device('cuda'))
     return ret
@@ -272,7 +273,12 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
 
     # innerLstmDict = defaultdict(lambda : model.get_inner_lstm())
     innerHidDict = defaultdict(lambda : model.init_hidden_inner())
-
+    # torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
+    # torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
+    load_checkPoint = False
+    if load_checkPoint:
+        model.load_state_dict(torch.load('./CheckPoints/Model_state.pt'))
+        model.optimiser.load_state_dict(torch.load('./CheckPoints/Optim_state.pt'))
 
     f = open('logs.txt', 'a')
 
@@ -292,6 +298,9 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                     # print('cvisit1',c_visit[1])
                     curr_city = c_visit[0]
                     model.changeCity(curr_city)
+                    model.eval()
+                    model.train()
+                    print('Total cities maintaining : ', len(model.state_map))
                     # print('curcity', curr_city)
                     inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
                     
@@ -306,11 +315,14 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                         innerLoss += model.checkInLoss(pred_checkin, cin)
 
                     total_loss += innerLoss
+                    print('Loss : ', innerLoss)
                     innerLoss.backward(retain_graph=True)
                     model.optimiser.step()
                     # del optimiser_inner
                     del innerLoss
                     innerHidDict[curr_city] = hidden_inner
+                    torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
+                    torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
 
                 # outer_loss.backward()
                 # optimiser_outer.step()
