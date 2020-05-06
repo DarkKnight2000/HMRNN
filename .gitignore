@@ -7,3 +7,4 @@ Refs/
 rnn.py
 __pycache__
 DataPickles/
+logs.txt

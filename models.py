@@ -198,8 +198,10 @@ class MultiLSTMModel(nn.Module):
         self.poi_vec_len = poi_vec_len
         self.city_rep_len = city_rep_len
         self.inner_hidden_size = 1 + poi_vec_len
-        self.innerLstm = None
+        self.innerLstm = nn.LSTM(input_size = self.city_rep_len, hidden_size = self.inner_hidden_size, batch_first = True, num_layers = 1)
         self.outerLstm = nn.LSTM(input_size = num_cities, hidden_size = city_rep_len, batch_first = True, num_layers = 1)
+        self.optimiser = torch.optim.Adam(self.parameters(), lr = 0.05)
+        self.state_map = dict()
 
         self.mseloss = nn.MSELoss()
         self.crossEntLoss = nn.CrossEntropyLoss()
@@ -236,11 +238,21 @@ class MultiLSTMModel(nn.Module):
         del l1
         return retVal
 
-    def chaneCity(self, cit_id):
-        pass
+    def changeCity(self, cit_id):
+        if cit_id in self.state_map.keys():
+            self.innerLstm.load_state_dict(self.state_map[cit_id][0])
+            self.optimiser.load_state_dict(self.state_map[cit_id][1])
+        else:
+            inerStateDict = self.get_inner_lstm().state_dict()
+            self.innerLstm.load_state_dict(inerStateDict)
+            optim = torch.optim.Adam(self.parameters(), lr = 0.05)
+            optimStateDict = optim.state_dict()
+            self.optimiser.load_state_dict(optimStateDict)
+            del optim
+            self.state_map[cit_id] = (inerStateDict, optimStateDict)
 
     def saveCity(self, curr_city_id):
-        pass
+        self.state_map[curr_city_id] = (self.innerLstm.state_dict(), self.optimiser.state_dict())
 
 def getEncodedVec(vec_len, on_at):
     ret = torch.zeros(vec_len, dtype = torch.float)
@@ -256,9 +268,9 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
     # optimiser_outer = torch.optim.Adam(model.outerLstm.parameters(), lr = 0.05)
 
     # to store no of visits by a user in each city
-    user_city_visits = defaultdict(lambda : defaultdict(lambda : 0))
+    # user_city_visits = defaultdict(lambda : defaultdict(lambda : 0))
 
-    innerLstmDict = defaultdict(lambda : model.get_inner_lstm())
+    # innerLstmDict = defaultdict(lambda : model.get_inner_lstm())
     innerHidDict = defaultdict(lambda : model.init_hidden_inner())
 
 
@@ -266,45 +278,44 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
 
     # training loop
     with autograd.detect_anomaly():
-	    for epoch in range(epochs):
-	        print("epoch started " + str(epoch))
-	        total_loss = 0
-	        # for each user
-	        print(data[0][0])
-	        for u_visit in data:
-	            # optimiser_outer.zero_grad()
-	            # outer_loss = 0
-	            outer_hidden = model.init_hidden_outer()
-	            # for each city a user visited
-	            for c_visit in u_visit:
-	                # print('cvisit1',c_visit[1])
-	                curr_city = c_visit[0]
-	                # print('curcity', curr_city)
-	                inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
-	                
+        for epoch in range(epochs):
+            print("epoch started " + str(epoch))
+            total_loss = 0
+            # for each user
+            print(data[0][0])
+            for u_visit in data:
+                # optimiser_outer.zero_grad()
+                # outer_loss = 0
+                outer_hidden = model.init_hidden_outer()
+                # for each city a user visited
+                for c_visit in u_visit:
+                    # print('cvisit1',c_visit[1])
+                    curr_city = c_visit[0]
+                    model.changeCity(curr_city)
+                    # print('curcity', curr_city)
+                    inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
+                    
 
-	                model.innerLstm = innerLstmDict[curr_city]
-	                hidden_inner = innerHidDict[curr_city]
-	                innerLoss = 0
-	                optimiser_inner = torch.optim.Adam(model.parameters(), lr = 0.05)
-	                optimiser_inner.zero_grad()
-	                for cin in c_visit[1]:
-	                    pred_checkin, hidden_inner = model.innerLstm(inp_inner, hidden_inner)
-	                    innerLoss += model.checkInLoss(pred_checkin, cin)
+                    # model.innerLstm = innerLstmDict[curr_city]
+                    hidden_inner = innerHidDict[curr_city]
+                    innerLoss = 0
+                    # optimiser_inner = torch.optim.Adam(model.parameters(), lr = 0.05)
+                    model.optimiser.zero_grad()
+                    for cin in c_visit[1]:
+                        pred_checkin, hidden_inner = model.innerLstm(inp_inner, hidden_inner)
+                        innerLoss += model.checkInLoss(pred_checkin, cin)
 
-	                total_loss += innerLoss
-	                innerLoss.backward(retain_graph=True)
-	                optimiser_inner.step()
-	                del optimiser_inner
-	                del innerLoss
-	                innerHidDict[curr_city] = hidden_inner
+                    total_loss += innerLoss
+                    innerLoss.backward(retain_graph=True)
+                    model.optimiser.step()
+                    # del optimiser_inner
+                    del innerLoss
+                    innerHidDict[curr_city] = hidden_inner
 
-	            # outer_loss.backward()
-	            # optimiser_outer.step()
+                # outer_loss.backward()
+                # optimiser_outer.step()
 
-	            # deleting hidden states of every city's lstm and starting newly for each user
-	            for k in innerHidDict.keys():
-	                del innerHidDict[k]
-	        if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
-
-	      
+                # deleting hidden states of every city's lstm and starting newly for each user
+                for k in innerHidDict.keys():
+                    del innerHidDict[k]
+            if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
