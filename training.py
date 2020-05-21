@@ -100,7 +100,7 @@ def getSessionData(df):
 # Writing curr time in log file
 from datetime import datetime
 f = open('logs.txt', 'a')
-f.write('Time stamp : ' + str(datetime.now()) + '\n')
+f.write('Started at Time stamp : ' + str(datetime.now()) + '\n')
 
 load_data = True
 df = pd.read_csv('./Datasets/dataset_TIST2015/smalldata_final.csv')

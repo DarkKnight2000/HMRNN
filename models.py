@@ -4,7 +4,8 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from collections import defaultdict
 from torch import autograd
-
+from datetime import datetime
+import time
 
 use_cuda = True
 print(torch.__version__)
@@ -280,16 +281,16 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
         model.load_state_dict(torch.load('./CheckPoints/Model_state.pt'))
         model.optimiser.load_state_dict(torch.load('./CheckPoints/Optim_state.pt'))
 
-    f = open('logs.txt', 'a')
+    f = open(f'logs_{time.time()}.txt', 'w')
 
     # training loop
     with autograd.detect_anomaly():
         for epoch in range(epochs):
-            print("epoch started " + str(epoch))
+            print(f"epoch started {epoch} at {datetime.now()}", file=f)
             total_loss = 0
             # for each user
             print(data[0][0])
-            for u_visit in data:
+            for u_visit in data[5:10]:
                 # optimiser_outer.zero_grad()
                 # outer_loss = 0
                 outer_hidden = model.init_hidden_outer()
@@ -300,7 +301,7 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                     model.changeCity(curr_city)
                     model.eval()
                     model.train()
-                    print('Total cities maintaining : ', len(model.state_map))
+                    print('Total cities maintaining : ', len(model.state_map), ' time : ', str(datetime.now()))
                     # print('curcity', curr_city)
                     inp_inner, outer_hidden = model.outerLstm(getEncodedVec(model.num_cities, curr_city).view(1, 1, -1), outer_hidden)
                     
@@ -315,19 +316,22 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                         innerLoss += model.checkInLoss(pred_checkin, cin)
 
                     total_loss += innerLoss
-                    print('Loss : ', innerLoss)
+                    print('Loss : ', innerLoss, ' time : ', str(datetime.now()))
                     innerLoss.backward(retain_graph=True)
                     model.optimiser.step()
                     # del optimiser_inner
                     del innerLoss
-                    innerHidDict[curr_city] = hidden_inner
-                    torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
-                    torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
+                innerHidDict[curr_city] = hidden_inner
+
+
+                torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
+                torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
+                print('Checkpoint saved at time ', str(datetime.now()))
 
                 # outer_loss.backward()
                 # optimiser_outer.step()
 
                 # deleting hidden states of every city's lstm and starting newly for each user
-                for k in innerHidDict.keys():
-                    del innerHidDict[k]
-            if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, file = f)
+                del innerHidDict
+                innerHidDict = defaultdict(lambda : model.init_hidden_inner())
+            if not epoch % 1 : print('\nepoch : ', epoch, ' loss: ', total_loss, f' at {datetime.now()}', file = f)
