@@ -30,7 +30,17 @@ epochs = 100
 
 def getData(df):
     inputs, labels, lastCheckins = [], [], []
-    for i,uid in enumerate(df[user_id_col].unique()):
+    select_users = []
+
+    for uid in df[user_id_col].unique():
+        sub_df = df[df[user_id_col] == uid]
+        if len(sub_df[city_id_col].unique()) < 16:
+            select_users.append(user_id_col)
+        if len(select_users) >= 5:
+            break
+
+
+    for i,uid in enumerate(select_users):
         sub_df = df[df[user_id_col] == uid]
         if not i % 50: print('usr id', uid, ' dflen ', len(sub_df.index))
         # inp = lat, long, time, cid
