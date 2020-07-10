@@ -5,7 +5,6 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 from collections import defaultdict
 from torch import autograd
 from datetime import datetime
-import time
 
 use_cuda = True
 print(torch.__version__)
@@ -263,8 +262,11 @@ def getEncodedVec(vec_len, on_at):
     if use_cuda : ret = ret.cuda(torch.device('cuda'))
     return ret
 
-def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
+def MultiLstmTrain(model:MultiLSTMModel, data, epochs, logFileName, useCudaArg = False):
 
+    global use_cuda
+    use_cuda = useCudaArg
+    print(use_cuda)
     if use_cuda : model.cuda(torch.device('cuda'))
 
     # optimiser_outer = torch.optim.Adam(model.outerLstm.parameters(), lr = 0.05)
@@ -281,7 +283,7 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
         model.load_state_dict(torch.load('./CheckPoints/Model_state.pt'))
         model.optimiser.load_state_dict(torch.load('./CheckPoints/Optim_state.pt'))
 
-    f = open(f'logs_{time.time()}.txt', 'w')
+    f = open(f'./logs/{logFileName}', 'w')
 
     # training loop
     with autograd.detect_anomaly():
@@ -289,8 +291,8 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
             print(f"epoch started {epoch} at {datetime.now()}", file=f)
             total_loss = 0
             # for each user
-            print(data[0][0])
-            for u_visit in data[5:10]:
+            # print(data[0][0])
+            for u_visit in data:
                 # optimiser_outer.zero_grad()
                 # outer_loss = 0
                 outer_hidden = model.init_hidden_outer()
@@ -324,8 +326,8 @@ def MultiLstmTrain(model:MultiLSTMModel, data, epochs):
                 innerHidDict[curr_city] = hidden_inner
 
 
-                torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
-                torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
+                # torch.save(model.state_dict(), './CheckPoints/Model_state.pt')
+                # torch.save(model.optimiser.state_dict(), './CheckPoints/Optim_state.pt')
                 print('Checkpoint saved at time ', str(datetime.now()))
 
                 # outer_loss.backward()

@@ -6,8 +6,9 @@ import random
 import pandas as pd
 import numpy as np
 import pickle
-
+import sys
 from models import SingleLSTMModel, MultiLSTMModel, MultiLstmTrain
+import time
 
 random.seed(0)
 np.random.seed(0)
@@ -22,10 +23,13 @@ long_col = 'longitude'
 time_col = 'utc_time'
 
 # training vars
+#####################       Needs 3 CL args - epochs num_users max_num_of_cities_to_Savve
 batch_size = 1
 seq_len = 1
 num_layers = 2
-epochs = 100
+epochs = int(sys.argv[1])
+max_users = int(sys.argv[2])
+max_city_len = int(sys.argv[3])
 
 
 def getData(df):
@@ -34,11 +38,12 @@ def getData(df):
 
     for uid in df[user_id_col].unique():
         sub_df = df[df[user_id_col] == uid]
-        if len(sub_df[city_id_col].unique()) < 16:
-            select_users.append(user_id_col)
-        if len(select_users) >= 5:
+        if len(sub_df[city_id_col].unique()) < max_city_len:
+            select_users.append(uid)
+        if len(select_users) >= max_users:
             break
 
+    print(select_users)
 
     for i,uid in enumerate(select_users):
         sub_df = df[df[user_id_col] == uid]
@@ -77,9 +82,23 @@ def getSessionData(df):
         for j in range(len(df2[i])):
             venue_id_map[df2[i][j]] = j # map from venue_id to its index in list of all venue_ids in current city
     print('done venueids')
+
+    select_users = []
+
+    for uid in df[user_id_col].unique():
+        sub_df = df[df[user_id_col] == uid]
+        if len(sub_df[city_id_col].unique()) < max_city_len:
+            select_users.append(uid)
+        if len(select_users) >= max_users:
+            break
+
+    print(select_users)
+
     data = []
     last_user_ind = -1
     for ind in df.index:
+        if df[user_id_col][ind] not in select_users:
+            continue
         if df[user_id_col][ind] != last_user_ind:
             data.append([[df[city_id_col][ind], []]])
             last_user_ind = df[user_id_col][ind]
@@ -89,7 +108,7 @@ def getSessionData(df):
             data[-1].append([df[city_id_col][ind], []])
             data[-1][-1][1].append([venue_id_map[df[poi_id_col][ind]], df[time_col][ind]])
 
-    print('onecheckinentry', data[0][0])
+    # print('onecheckinentry', data[0][0])
 
     # data[user_id] = [[city_id, list of checkins info in that city]]
     return data, max_venues
@@ -109,10 +128,10 @@ def getSessionData(df):
 
 # Writing curr time in log file
 from datetime import datetime
-f = open('logs.txt', 'a')
+f = open('./logs/logs.txt', 'a')
 f.write('Started at Time stamp : ' + str(datetime.now()) + '\n')
 
-load_data = True
+load_data = False
 df = pd.read_csv('./Datasets/dataset_TIST2015/smalldata_final.csv')
 
 if not load_data:
@@ -154,7 +173,9 @@ elif model_name == 2:
 
     # creating model
     model = MultiLSTMModel(city_vec_len, data[1])
-    MultiLstmTrain(model, data[0], 100)
+    usCudaArg = False
+    # if len(sys.argv) == 5 : usCudaArg = bool(sys.argv[4])
+    # MultiLstmTrain(model, data[0], 100, f"logs_{epochs}_{max_users}_{max_city_len}_{time.time()}.txt", usCudaArg)
 
 
 f.close()
